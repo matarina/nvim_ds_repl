@@ -34,7 +34,7 @@ local get_statement_definition = function(filetype)
     if (node:type() == '') then
         error("Node not recognized. Check to ensure treesitter parser is installed.")
     end
-    if filetype == "python" or filetype == "sdala" then
+    if filetype == "python" then
         while (
             string.match(node:sexpr(), "import") == nil and
                 string.match(node:sexpr(), "statement") == nil and
@@ -42,29 +42,8 @@ local get_statement_definition = function(filetype)
                 string.match(node:sexpr(), "call_expression") == nil) do
             node = node:parent()
         end
-    elseif filetype == "lua" then
-        while (
-            string.match(node:sexpr(), "for_statement") == nil and
-                string.match(node:sexpr(), "if_statement") == nil and
-                string.match(node:sexpr(), "while_statement") == nil and
-                string.match(node:sexpr(), "assignment_statement") == nil and
-                string.match(node:sexpr(), "function_definition") == nil and
-                string.match(node:sexpr(), "function_call") == nil and
-                string.match(node:sexpr(), "local_declaration") == nil
-            ) do
-            node = node:parent()
-        end
-    elseif filetype == "r" and node:parent() ~= nil then
-	parenode = node:parent()
-        while (
-            parenode:type() ~= "program" and
-            string.match(node:sexpr(), "for") == nil and --warning : do not write 'if'
-            string.match(node:sexpr(), "call") == nil and
-            string.match(node:sexpr(), "subset") == nil and
-            string.match(node:sexpr(), "function_definition") == nil and
-	    string.match(node:sexpr(), "left_assignment") == nil and
-	    string.match(node:sexpr(), "equals_assignment") == nil
-            ) do
+    elseif filetype == "r" then
+        while node:parent():type() ~= "program"  do
             node = node:parent()
         end
     end
@@ -79,16 +58,12 @@ local term_open = function(filetype, config)
     else
         api.nvim_command('split')
     end
-    local buf = vim.api.nvim_create_buf(true, true)
+    local buf = vim.api.nvim_get_current_buf()
     local win = vim.api.nvim_get_current_win()
     vim.api.nvim_win_set_buf(win, buf)
     local choice = ''
-    if filetype == 'scala' then
-        choice = config.spawn_command.scala
-    elseif filetype == 'python' then
+    if filetype == 'python' then
         choice = config.spawn_command.python
-    elseif filetype == 'lua' then
-        choice = config.spawn_command.lua
     elseif filetype == 'r' then
         choice = config.spawn_command.r
     end
@@ -139,7 +114,7 @@ local construct_message_from_node = function(filetype)
     local message = vim.treesitter.get_node_text(node, bufnr)
     local endrow
     if filetype == "python" or filetype == "r" then
-        local _, start_column, er, _ = node:range()
+        local _, start_column, endrow2, _ = node:range()
         while start_column ~= 0 do
             -- For empty blank lines
             message = string.gsub(message, "\n\n+", "\n")
@@ -147,7 +122,7 @@ local construct_message_from_node = function(filetype)
             message = string.gsub(message, "\n%s%s%s%s", "\n")
             start_column = start_column - 4
         end
-    endrow = er
+    endrow = endrow2 
     end
     return message, endrow
 
@@ -157,17 +132,15 @@ local send_message = function(filetype, message, config)
         term_open(filetype, config)
         vim.wait(500)
     end
-    if filetype == "python" or filetype == "lua" then
+    if filetype == "python" then
         message = api.nvim_replace_termcodes("<esc>[200~" .. message .. "<cr><esc>[201~", true, false, true)
     elseif filetype == "r" then
         message = api.nvim_replace_termcodes("<esc>[200~" .. message .. "<esc>[201~", true, false, true)
     end
-    if config.execute_on_send then
-        message = api.nvim_replace_termcodes(message .. "<cr>", true, false, true)
-    end
+    message = api.nvim_replace_termcodes(message .. "<cr>", true, false, true)
     if M.term.chanid ~= nil then
         api.nvim_chan_send(M.term.chanid, message)
-	api.nvim_win_set_cursor(M.term.winid, {vim.api.nvim_buf_line_count(M.term.bufid), 0})
+	    api.nvim_win_set_cursor(M.term.winid, {vim.api.nvim_buf_line_count(M.term.bufid), 0})
     end
 end
 
