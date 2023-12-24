@@ -3,9 +3,9 @@
 A quite simple newly created custom nvim REPL plugin for data scientist supported R and Python languages.
 Most code sending action are inspired by Rstudio and Jupyter.
 ## Features
-Sending semantic code block utilize Treesitter object.
-Visual selections sending support.
-send whole buffer.
+#### Sending semantic code block utilize Treesitter object.
+#### Visual selections sending support.
+#### send whole buffer.
 ## Usage
 for lazy 
 ```
