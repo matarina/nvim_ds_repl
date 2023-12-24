@@ -40,4 +40,7 @@ vim.api.nvim_create_autocmd({"BufEnter", "BufWinEnter"}, {
 end})
 
 ```
+## TODO
+#### 1> plot in line via x11 forward or kitty protocal
+#### 2> Variable inspect panel
 the plugin are highly based [nvim-python-repl](https://github.com/geg2102/nvim-python-repl)
