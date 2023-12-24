@@ -8,6 +8,7 @@ Visual selections sending support.
 send whole buffer.
 ## Usage
 for lazy 
+```
 return {
     "petrichorma/nvim_ds_repl",
     dependencies = "nvim-treesitter",
@@ -19,5 +20,6 @@ return {
     end
     }
 
+```
 
 the plugin are based nvim-python-repl
