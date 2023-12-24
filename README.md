@@ -1,7 +1,7 @@
 # nvim_ds_repl
 ### About **nvim_d(ata)s(cience)_repl** 
 A quite simple newly created custom nvim REPL(Read–eval–print loop) plugin for data scientist supported R and Python languages.
-Most code sending action are inspired by Rstudio and Jupyter.
+Most code sending action pattern was inspired by Rstudio and Jupyter.
 ## Features
 #### Sending semantic code block utilize Treesitter object.
 #### Visual selections sending.
