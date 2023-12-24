@@ -1,6 +1,6 @@
 local M = {}
-local repl = require("nvim-python-repl.nvim-python-repl")
-local config = require("nvim-python-repl.config")
+local repl = require("nvim_ds_repl.nvim_ds_repl")
+local config = require("nvim_ds_repl.config")
 
 function M.setup(options)
     setmetatable(M, {
