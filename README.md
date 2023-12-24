@@ -22,4 +22,4 @@ return {
 
 ```
 
-the plugin are based nvim-python-repl
+the plugin are highly based [nvim-python-repl](https://github.com/geg2102/nvim-python-repl)
