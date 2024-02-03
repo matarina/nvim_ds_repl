@@ -23,6 +23,8 @@ end
 
 local get_statement_definition = function(filetype)
     local line = vim.api.nvim_get_current_line()
+
+
     if line:match("^%s*$") then
         while line:match("^%s*$") do 
 		        local pos = api.nvim_win_get_cursor(0)
@@ -30,10 +32,18 @@ local get_statement_definition = function(filetype)
                 line = api.nvim_get_current_line() -- Update the line variable
         end
     end
+    vim.api.nvim_exec("normal ^", true)
     local node = ts_utils.get_node_at_cursor()
-    if (node:type() == '') then
-        error("Node not recognized. Check to ensure treesitter parser is installed.")
+
+    local cursor_pos = vim.api.nvim_win_get_cursor(0) 
+    local endrow = cursor_pos[1] -- Extract the line number
+    local bfid = api.nvim_get_current_buf()
+    local line_count = api.nvim_buf_line_count(bfid)
+    print(line_count)
+    if endrow + 1  == line_count then
+        api.nvim_win_set_cursor(0, {endrow + 1, 0})
     end
+
     if filetype == "python" then
         while (
             string.match(node:sexpr(), "import") == nil and
@@ -150,8 +160,12 @@ M.send_statement_definition = function(config)
     send_message(filetype, message, config)
     local bfid = api.nvim_get_current_buf()
     local line_count = api.nvim_buf_line_count(bfid)
-    if endrow + 2 < line_count then
+    if endrow + 2 <= line_count then
+        print(endrow)
+        print(line_count)
         api.nvim_win_set_cursor(orig_win, {endrow + 2, 0})
+    else
+        api.nvim_win_set_cursor(orig_win, {endrow + 1, 0})
     end
 end
 
@@ -163,7 +177,7 @@ M.send_visual_to_repl = function(config)
     send_message(filetype, concat_message, config)
     local bfid = api.nvim_get_current_buf()
     local line_count = api.nvim_buf_line_count(bfid)
-    if end_row + 2 < line_count then
+    if end_row + 2 <= line_count then
         api.nvim_win_set_cursor(orig_win, {end_row + 2, 0})
     end
 end
