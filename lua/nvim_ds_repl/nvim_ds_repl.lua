@@ -161,8 +161,6 @@ M.send_statement_definition = function(config)
     local bfid = api.nvim_get_current_buf()
     local line_count = api.nvim_buf_line_count(bfid)
     if endrow + 2 <= line_count then
-        print(endrow)
-        print(line_count)
         api.nvim_win_set_cursor(orig_win, {endrow + 2, 0})
     else
         api.nvim_win_set_cursor(orig_win, {endrow + 1, 0})
