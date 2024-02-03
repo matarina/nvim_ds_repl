@@ -39,7 +39,7 @@ local get_statement_definition = function(filetype)
     local endrow = cursor_pos[1] -- Extract the line number
     local bfid = api.nvim_get_current_buf()
     local line_count = api.nvim_buf_line_count(bfid)
-    print(line_count)
+    --print(line_count)
     if endrow + 1  == line_count then
         api.nvim_win_set_cursor(0, {endrow + 1, 0})
     end
