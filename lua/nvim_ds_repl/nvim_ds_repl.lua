@@ -34,7 +34,6 @@ local get_statement_definition = function(filetype)
     end
     vim.api.nvim_exec("normal ^", true)
     local node = ts_utils.get_node_at_cursor()
-
     local cursor_pos = vim.api.nvim_win_get_cursor(0) 
     local endrow = cursor_pos[1] -- Extract the line number
     local bfid = api.nvim_get_current_buf()
