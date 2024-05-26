@@ -1,5 +1,6 @@
-local ts_utils = require("nvim-treesitter.ts_utils")
 local api = vim.api
+local ts = vim.treesitter
+local parsers = require('nvim-treesitter.parsers')
 
 M = {}
 
@@ -10,7 +11,6 @@ M.term = {
     chanid = nil,
 }
 
--- HELPERS
 local visual_selection_range = function()
     local _, start_row, start_col, _ = unpack(vim.fn.getpos("'<"))
     local _, end_row, end_col, _ = unpack(vim.fn.getpos("'>"))
@@ -21,43 +21,6 @@ local visual_selection_range = function()
     end
 end
 
-local get_statement_definition = function(filetype)
-    local line = vim.api.nvim_get_current_line()
-
-
-    if line:match("^%s*$") then
-        while line:match("^%s*$") do 
-		        local pos = api.nvim_win_get_cursor(0)
-                api.nvim_win_set_cursor(0, {pos[1] + 1, pos[2]})
-                line = api.nvim_get_current_line() -- Update the line variable
-        end
-    end
-    vim.api.nvim_exec("normal ^", true)
-    local node = ts_utils.get_node_at_cursor()
-    local cursor_pos = vim.api.nvim_win_get_cursor(0) 
-    local endrow = cursor_pos[1] -- Extract the line number
-    local bfid = api.nvim_get_current_buf()
-    local line_count = api.nvim_buf_line_count(bfid)
-    --print(line_count)
-    if endrow + 1  == line_count then
-        api.nvim_win_set_cursor(0, {endrow + 1, 0})
-    end
-
-    if filetype == "python" then
-        while (
-            string.match(node:sexpr(), "import") == nil and
-                string.match(node:sexpr(), "statement") == nil and
-                string.match(node:sexpr(), "definition") == nil and
-                string.match(node:sexpr(), "call_expression") == nil) do
-            node = node:parent()
-        end
-    elseif filetype == "r" then
-        while node:parent():type() ~= "program"  do
-            node = node:parent()
-        end
-    end
-    return node
-end
 
 local term_open = function(filetype, config)
     orig_win = vim.api.nvim_get_current_win()
@@ -89,24 +52,20 @@ local term_open = function(filetype, config)
     M.term.opened = 1
     M.term.winid = win
     M.term.bufid = buf
-    -- Return to original window
     api.nvim_set_current_win(orig_win)
 end
 
--- CONSTRUCTING MESSAGE
 local construct_message_from_selection = function(start_row, start_col, end_row, end_col)
     local bufnr = api.nvim_get_current_buf()
     if start_row ~= end_row then
         local lines = api.nvim_buf_get_lines(bufnr, start_row, end_row + 1, false)
         lines[1] = string.sub(lines[1], start_col + 1)
-        -- end_row might be just after the last line. In this case the last line is not truncated.
         if #lines == end_row - start_row then
             lines[#lines] = string.sub(lines[#lines], 1, end_col)
         end
         return lines
     else
         local line = api.nvim_buf_get_lines(bufnr, start_row, start_row + 1, false)[1]
-        -- If line is nil then the line is empty
         return line and { string.sub(line, start_col + 1, end_col) } or {}
     end
 end
@@ -117,25 +76,65 @@ local construct_message_from_buffer = function()
     return lines
 end
 
-local construct_message_from_node = function(filetype)
-    local node = get_statement_definition(filetype)
-    local bufnr = api.nvim_get_current_buf()
-    local message = vim.treesitter.get_node_text(node, bufnr)
-    local endrow
-    if filetype == "python" or filetype == "r" then
-        local _, start_column, endrow2, _ = node:range()
-        while start_column ~= 0 do
-            -- For empty blank lines
-            message = string.gsub(message, "\n\n+", "\n")
-            -- For nested indents in classes/functions
-            message = string.gsub(message, "\n%s%s%s%s", "\n")
-            start_column = start_column - 4
+local semantic_message_construct = function()
+    local function inspect_nodes()
+      local parser = parsers.get_parser()
+      
+      local tree = parser:parse()[1]
+      local root = tree:root()
+      local unique_types = {}
+      
+      for child in root:iter_children() do 
+        local type = child:type()
+        if not unique_types[type] then
+          unique_types[type] = true
         end
-    endrow = endrow2 
+          unique_types['comment'] = true
+      end
+      
+      return unique_types
     end
-    return message, endrow
 
+
+    local function type_exists(unique_types, type_to_check)
+      return unique_types[type_to_check] ~= nil
+    end
+
+    local unique_child_types = inspect_nodes()
+
+    local status, result = pcall(function()
+        local node = vim.treesitter.get_node()
+        while true do
+            if type_exists(unique_child_types, node:type()) then
+                break
+            else 
+                node = node:parent()
+            end
+        end
+        local text = vim.treesitter.get_node_text(node,0)
+        local start_row, start_col, end_row, end_col =  vim.treesitter.get_node_range(node)
+        return {text, end_row}
+    end)
+
+    if status then
+        return result
+    end
 end
+
+
+local MoveCursorToNextLine = function(end_row)
+  local current_line, current_col = unpack(vim.api.nvim_win_get_cursor(0))
+  local total_lines = vim.api.nvim_buf_line_count(0)
+  if current_line < total_lines then
+        if end_row ~= nil then
+            vim.api.nvim_win_set_cursor(0, {end_row + 2, 0})
+        else
+            vim.api.nvim_win_set_cursor(0, {current_line + 1, 0})
+        end
+  end
+end
+
+
 local send_message = function(filetype, message, config)
     if M.term.opened == 0 then
         term_open(filetype, config)
@@ -149,20 +148,18 @@ local send_message = function(filetype, message, config)
     message = api.nvim_replace_termcodes(message .. "<cr>", true, false, true)
     if M.term.chanid ~= nil then
         api.nvim_chan_send(M.term.chanid, message)
-	    api.nvim_win_set_cursor(M.term.winid, {vim.api.nvim_buf_line_count(M.term.bufid), 0})
     end
 end
 
 M.send_statement_definition = function(config)
     local filetype = vim.bo.filetype
-    local message, endrow = construct_message_from_node(filetype)
-    send_message(filetype, message, config)
-    local bfid = api.nvim_get_current_buf()
-    local line_count = api.nvim_buf_line_count(bfid)
-    if endrow + 2 <= line_count then
-        api.nvim_win_set_cursor(orig_win, {endrow + 2, 0})
+    local result = semantic_message_construct()
+    if result == nil then
+        print('Input empty string.')
     else
-        api.nvim_win_set_cursor(orig_win, {endrow + 1, 0})
+        local message, end_row = unpack(result)
+        send_message(filetype, message, config)
+        MoveCursorToNextLine(end_row)
     end
 end
 
@@ -172,11 +169,7 @@ M.send_visual_to_repl = function(config)
     local message = construct_message_from_selection(start_row, start_col, end_row, end_col)
     local concat_message = table.concat(message, "\n")
     send_message(filetype, concat_message, config)
-    local bfid = api.nvim_get_current_buf()
-    local line_count = api.nvim_buf_line_count(bfid)
-    if end_row + 2 <= line_count then
-        api.nvim_win_set_cursor(orig_win, {end_row + 2, 0})
-    end
+    MoveCursorToNextLine()
 end
 
 M.send_buffer_to_repl = function(config)

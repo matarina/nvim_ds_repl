@@ -33,16 +33,4 @@ function M.send_buffer_to_repl()
     repl.send_buffer_to_repl(M)
 end
 
-function M.toggle_execute()
-    local original = config.defaults["execute_on_send"]
-    config.defaults["execute_on_send"] = not original
-    print("execute_on_send=" .. tostring(not original))
-end
-
-function M.toggle_vertical()
-    local original = config.defaults["vsplit"]
-    config.defaults["vsplit"] = not original
-    print("vsplit=" .. tostring(not original))
-end
-
 return M
