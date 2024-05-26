@@ -7,7 +7,7 @@ Most code sending action pattern was inspired by Rstudio and Jupyter.
 #### Visual selections sending.
 #### Sending whole buffer.
 ## Usage
-for lazy 
+for Lazy package manager: 
 ```
 return {
     "petrichorma/nvim_ds_repl",
