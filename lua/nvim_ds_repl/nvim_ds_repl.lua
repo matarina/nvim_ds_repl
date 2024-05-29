@@ -96,47 +96,33 @@ local semantic_message_construct = function()
             end
         end
     end
-    local function inspect_nodes()
+    local function is_direct_child_of_root(node)
         local parser = parsers.get_parser()
 
         local tree = parser:parse()[1]
         local root = tree:root()
-        local unique_types = {}
-
         for child in root:iter_children() do
-            local type = child:type()
-            if not unique_types[type] then
-                unique_types[type] = true
+            if child:id() == node:id() then
+                return true
             end
-            unique_types["comment"] = true
         end
-
-        return unique_types
-    end
-
-    local function type_exists(unique_types, type_to_check)
-        return unique_types[type_to_check] ~= nil
-    end
-
-    local unique_child_types = inspect_nodes()
+        return false
+        end
 
     local status, result =
         pcall(
         function()
             local node = vim.treesitter.get_node()
-            while true do
-                if type_exists(unique_child_types, node:type()) then
-                    break
-                else
-                    node = node:parent()
+            while node do
+                if is_direct_child_of_root(node) then
+                   local text = vim.treesitter.get_node_text(node, 0)
+                   local start_row, start_col, end_row, end_col = vim.treesitter.get_node_range(node)
+                   return {text, end_row}
                 end
+                node = node:parent() -- Move to the parent node
             end
-            local text = vim.treesitter.get_node_text(node, 0)
-            local start_row, start_col, end_row, end_col = vim.treesitter.get_node_range(node)
-            return {text, end_row}
         end
     )
-
     if status then
         return result
     end
