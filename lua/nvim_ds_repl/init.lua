@@ -1,24 +1,6 @@
 local M = {}
 local repl = require("nvim_ds_repl.nvim_ds_repl")
-local config = require("nvim_ds_repl.config")
 
-function M.setup(options)
-    setmetatable(M, {
-        __newindex = config.set,
-        __index = config.get
-    })
-    if options ~= nil then
-        for k1, v1 in pairs(options) do
-            if (type(config.defaults[k1]) == "table") then
-                for k2, v2 in pairs(options[k1]) do
-                    config.defaults[k1][k2] = v2
-                end
-            else
-                config.defaults[k1] = v1
-            end
-        end
-    end
-end
 
 function M.send_statement_definition()
     repl.send_statement_definition(M)
@@ -31,6 +13,14 @@ end
 
 function M.send_buffer_to_repl()
     repl.send_buffer_to_repl(M)
+end
+
+function M.get_envs()
+    repl.get_envs(M)
+end
+
+function M.inspect()
+    repl.inspect(M)
 end
 
 return M
