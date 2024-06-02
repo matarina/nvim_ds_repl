@@ -2,6 +2,8 @@
 
 Introducing nvim_ds_repl, a custom nvim (Neovim) plugin designed as a REPL (Read–Eval–Print Loop) specifically tailored for data scientists. Optimized for Python and R, it theoretically supports any language that has an available Jupyter kernel. Inspired by the functionality of Rstudio and Jupyter, the plugin provides a seamless code-sending experience.
 
+## Demo
+https://youtu.be/G24Dg-npRVE
 ## Features
 
 #### Intelligent Code Block Transmission: Utilizes Treesitter to send semantic code blocks.
