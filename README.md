@@ -1,4 +1,4 @@
-#About nvim_ds_repl
+# About nvim_ds_repl
 
 Introducing nvim_ds_repl, a custom nvim (Neovim) plugin designed as a REPL (Read–Eval–Print Loop) specifically tailored for data scientists. Optimized for Python and R, it theoretically supports any language that has an available Jupyter kernel. Inspired by the functionality of Rstudio and Jupyter, the plugin provides a seamless code-sending experience.
 
@@ -9,11 +9,11 @@ Introducing nvim_ds_repl, a custom nvim (Neovim) plugin designed as a REPL (Read
     Environment Inspection: Inspect variables and view current variables in the environment.
 
 
-##Development
+## Development
 
 As of May 2024, nvim_ds_repl has been rebuilt using pynvim, leading to rapid feature evolution. Suggestions and feedback are highly appreciated and can be sent to maxiaowei2020@foxmail.com.
 
-##Usage
+## Usage
 
 For those using the Lazy package manager, include:
 ```
@@ -23,7 +23,7 @@ return {
 }
 ```
 
-##Default Keymaps Configuration
+## Default Keymaps Configuration
 
 Here's how to set up default keymaps for the nvim_ds_repl plugin:
 
@@ -48,7 +48,7 @@ vim.api.nvim_create_autocmd({"BufEnter", "BufWinEnter"}, {
 ```
 
 
-###To-Do
+### To-Do
 
     Inline Plotting: Enable inline plotting through X11 forwarding, possibly via the Kitty terminal (or similar protocols).
     The plugin is based on [nvim-python-repl](https://github.com/geg2102/nvim-python-repl).
