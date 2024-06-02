@@ -148,7 +148,7 @@ local MoveCursorToNextLine = function(end_row)
     local current_line, current_col = unpack(api.nvim_win_get_cursor(0))
     local total_lines = api.nvim_buf_line_count(0)
 
-    if current_line + 1 < total_lines then
+    if current_line + 1 <= total_lines then
         if end_row ~= nil then
             api.nvim_win_set_cursor(0, {end_row + 2, 0})
         else

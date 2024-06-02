@@ -1,46 +1,55 @@
-# nvim_ds_repl
-### About **nvim_d(ata)s(cience)_repl** 
-A quite simple newly created custom nvim REPL(Read–eval–print loop) plugin for data scientist supported R and Python languages.
-Most code sending action pattern was inspired by Rstudio and Jupyter.
-## Features
-#### Sending semantic code block utilize Treesitter object.
-#### Visual selections sending.
-#### Sending whole buffer.
-## Usage
-for Lazy package manager: 
+#About nvim_ds_repl
+
+Introducing nvim_ds_repl, a custom nvim (Neovim) plugin designed as a REPL (Read–Eval–Print Loop) specifically tailored for data scientists. Optimized for Python and R, it theoretically supports any language that has an available Jupyter kernel. Inspired by the functionality of Rstudio and Jupyter, the plugin provides a seamless code-sending experience.
+
+##Features
+
+    Intelligent Code Block Transmission: Utilizes Treesitter to send semantic code blocks.
+    Flexible Code Sending: Choose to send visual selections or entire buffer contents with ease.
+    Environment Inspection: Inspect variables and view current variables in the environment.
+
+
+##Development
+
+As of May 2024, nvim_ds_repl has been rebuilt using pynvim, leading to rapid feature evolution. Suggestions and feedback are highly appreciated and can be sent to maxiaowei2020@foxmail.com.
+
+##Usage
+
+For those using the Lazy package manager, include:
 ```
 return {
     "petrichorma/nvim_ds_repl",
-    dependencies = "nvim-treesitter",
-    ft = {"python", "lua"}, 
-    config = function()
-        require("nvim_ds_repl").setup({
-            vsplit = true,
-        })
-    end
-    }
+    requires = "nvim-treesitter",
+}
+```
 
+##Default Keymaps Configuration
+
+Here's how to set up default keymaps for the nvim_ds_repl plugin:
+
+-- Configuration for nvim_ds_repl plugin --
 ```
-Keymaps
-defult Keymaps:
-```
---nvim_ds_repl plugins config--
 vim.api.nvim_create_autocmd({"BufEnter", "BufWinEnter"}, {
-  pattern = {"*.py","*.R",},
+  pattern = {"*.py", "*.R"},
   callback = function()
-	vim.keymap.set("n", '<CR>', function() 
-        require('nvim_ds_repl').send_statement_definition() 
+    vim.keymap.set("n", '<CR>', function()
+      require('nvim_ds_repl').send_statement_definition()
     end, {noremap = true})
-	vim.keymap.set("v", '<CR>', function() 
-        require('nvim_ds_repl').send_visual_to_repl() 
+    vim.keymap.set("v", '<CR>', function()
+      require('nvim_ds_repl').send_visual_to_repl()
     end, {noremap = true})
-	vim.keymap.set("n", '<leader>fa', function() 
-        require('nvim_ds_repl').send_buffer_to_repl() 
+    vim.keymap.set("n", '<leader>fa', function()
+      require('nvim_ds_repl').send_buffer_to_repl()
     end, {noremap = true})
-end})
-
+    vim.api.nvim_set_keymap('n', '<leader>pp', "<cmd>lua require('nvim_ds_repl').get_envs()<CR>", {noremap = true, silent = true})
+    vim.api.nvim_set_keymap('n', '<leader>pj', "<cmd>lua require('nvim_ds_repl').inspect()<CR>", {noremap = true, silent = true})
+  end
+})
 ```
-## TODO
-#### 1> plot in line via x11 forward or kitty protocal
-#### 2> Variable inspect panel
-the plugin are highly based [nvim-python-repl](https://github.com/geg2102/nvim-python-repl)
+
+
+###To-Do
+
+    Inline Plotting: Enable inline plotting through X11 forwarding, possibly via the Kitty terminal (or similar protocols).
+    The plugin is based on [nvim-python-repl](https://github.com/geg2102/nvim-python-repl).
+
