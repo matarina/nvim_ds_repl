@@ -1,4 +1,5 @@
 import pynvim
+import os
 from jupyter_client import BlockingKernelClient, KernelManager
 from jupyter_core.paths import jupyter_runtime_dir
 from pathlib import Path
@@ -27,7 +28,10 @@ class JupyterKernel:
     @pynvim.function("KernelVars", sync=True)
     def connect_to_kernel(self, args):
         pid = self.vim.call('getpid')
-        connection = jupyter_runtime_dir() +'/kernel_' + str(pid) + '.json'
+        path = jupyter_runtime_dir()
+        if not os.path.exists(path):
+            os.mkdir(path)
+        connection = path +'/kernel_' + str(pid) + '.json'
         self.client = BlockingKernelClient(connection_file= connection)
         self.client.load_connection_file()
         self.client.start_channels()
