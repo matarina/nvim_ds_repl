@@ -42,39 +42,6 @@ local term_open = function(filetype)
     vim.bo[buf].filetype = "term"
     api.nvim_set_current_win(orig_win)
 end
---
---     orig_win = api.nvim_get_current_win()
---     if M.term.chanid ~= nil then
---         return
---     end
---     api.nvim_command("bo 60vne")
---     local buf = api.nvim_get_current_buf()
---     local win = api.nvim_get_current_win()
---     api.nvim_win_set_buf(win, buf)
---     local choice = ""
---     if filetype == "python" then
---         choice = 'ipython'
---     elseif filetype == "r" then
---         choice = 'radian'
---     end
---     local chan =
---         vim.fn.termopen(
---         choice,
---         { on_exit = function()
---                 M.term.chanid = nil
---                 M.term.opened = 0
---                 M.term.winid = nil
---                 M.term.bufid = nil
---             end
---         }
---     )
---     M.term.chanid = chan
---     vim.bo.filetype = "term"
---     M.term.opened = 1
---     M.term.winid = win
---     M.term.bufid = buf
---     api.nvim_set_current_win(orig_win)
--- end
 
 local construct_message_from_selection = function(start_row, start_col, end_row, end_col)
     local bufnr = api.nvim_get_current_buf()
