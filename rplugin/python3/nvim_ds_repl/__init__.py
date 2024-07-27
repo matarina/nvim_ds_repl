@@ -21,7 +21,7 @@ class JupyterKernel:
         pid = self.vim.call('getpid')
         path = jupyter_runtime_dir()
         if not os.path.exists(path):
-            os.mkdir(path)
+            os.makedirs(path, exist_ok=True)
         self.connection = path +'/kernel_' + str(pid) + '.json'
         km = KernelManager(kernel_name = kernel_name)
         km.connection_file = self.connection 
