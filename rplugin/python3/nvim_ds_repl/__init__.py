@@ -19,7 +19,10 @@ class JupyterKernel:
         else:
             print('Unsupported Language')
         pid = self.vim.call('getpid')
-        self.connection = jupyter_runtime_dir() +'/kernel_' + str(pid) + '.json'
+        path = jupyter_runtime_dir()
+        if not os.path.exists(path):
+            os.mkdir(path)
+        self.connection = path +'/kernel_' + str(pid) + '.json'
         km = KernelManager(kernel_name = kernel_name)
         km.connection_file = self.connection 
         km.start_kernel()
@@ -29,8 +32,6 @@ class JupyterKernel:
     def connect_to_kernel(self, args):
         pid = self.vim.call('getpid')
         path = jupyter_runtime_dir()
-        if not os.path.exists(path):
-            os.mkdir(path)
         connection = path +'/kernel_' + str(pid) + '.json'
         self.client = BlockingKernelClient(connection_file= connection)
         self.client.load_connection_file()
