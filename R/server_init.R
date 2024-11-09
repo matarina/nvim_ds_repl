@@ -1,3 +1,5 @@
+# server.R
+
 library(httpuv)
 library(jsonlite)
 
@@ -10,7 +12,7 @@ get_global_env <- function() {
       type = typeof(obj_value),
       class = class(obj_value),
       length = length(obj_value),
-      structure = capture.output(str(obj_value))
+      structure = capture.output(str(obj_value, vec.len = 2))
     )
   })
 }
@@ -18,7 +20,7 @@ get_global_env <- function() {
 # Request handlers
 request_handlers <- list(
   greet = function(request) {
-    list(status = "success", message = "Hello! -- from server")
+    list(status = "success", message = "Hello! -- from R server")
   },
   query_global = function(request) {
     list(status = "success", global_env = get_global_env())
@@ -27,45 +29,55 @@ request_handlers <- list(
     obj_name <- request$obj
     if (exists(obj_name, envir = .GlobalEnv)) {
       obj <- get(obj_name, envir = .GlobalEnv)
-      list(
-        status = "success",
-        object = list(
-          type = typeof(obj),
-          class = class(obj),
-          length = length(obj),
-          content = capture.output(str(obj))
+      
+      # Determine the type of the object
+      obj_class <- class(obj)
+      if ("data.frame" %in% obj_class || "matrix" %in% obj_class || "data.table" %in% obj_class) {
+        obj_df = as.data.frame(obj)
+        # For data.frame, matrix, or tibble, return as JSON
+        df_json <- toJSON(obj_df, dataframe = "rows", pretty = TRUE)
+        list(
+          status = "success",
+          type = "dataframe",
+          data = df_json
         )
-      )
+      } else {
+        # For other object types, return detailed info as a string
+        info_str <- paste(
+          "Type:", typeof(obj),
+          "\nClass:", ifelse(is.null(obj_class), "N/A", paste(obj_class, collapse = ", ")),
+          "\nLength:", length(obj),
+          "\nStructure:\n", paste(capture.output(str(obj, vec.len = 2)), collapse = "\n"),
+          sep = " "
+        )
+        list(
+          status = "success",
+          type = "info",
+          data = info_str
+        )
+      }
     } else {
       list(status = "error", message = paste("Object", obj_name, "does not exist!"))
-    }
-  },
-  table_view = function(request) {
-    table_name <- request$table
-    if (exists(table_name, envir = .GlobalEnv)) {
-      table <- get(table_name, envir = .GlobalEnv)
-      tmp_file <- tempfile(fileext = ".csv")
-      write.csv(table, file = tmp_file, row.names = FALSE)
-      list(status = "success", filepath = tmp_file)
-    } else {
-      list(status = "error", message = paste("Table", table_name, "does not exist!"))
     }
   }
 )
 
 # Initialize and start the server
-init_server <- function(host = "127.0.0.1", port = port , handlers = request_handlers) {
+init_server <- function(host = "127.0.0.1", port = 8000, handlers = request_handlers) {
   tryCatch({
     server <- httpuv::startServer(host, port, list(
       call = function(req) {
-        content <- req$rook.input$read_lines()
-        request <- fromJSON(content, simplifyVector = FALSE)
+        # Read the request body
+        body <- rawToChar(req$rook.input$read())
+        request <- fromJSON(body, simplifyVector = FALSE)
+        
         handler <- handlers[[request$type]]
         response <- if (is.function(handler)) {
           do.call(handler, list(request))
         } else {
           list(status = "error", message = "Unknown request type")
         }
+        
         list(
           status = 200,
           headers = list("Content-Type" = "application/json"),
@@ -73,13 +85,19 @@ init_server <- function(host = "127.0.0.1", port = port , handlers = request_han
         )
       }
     ))
-    cat("Server started on", host, ":", port, "\n")
+    cat("R Server started on", host, ":", port, "\n")
     list(server = server, port = port)
   }, error = function(e) {
-    cat("Failed to start server:", e$message, "\n")
+    cat("Failed to start R server:", e$message, "\n")
     NULL
   })
 }
-port <- Sys.getenv("PORT")
-port = as.integer(port)
+
+# Retrieve the port from environment variable or use default
+port_env <- Sys.getenv("PORT")
+port <- ifelse(port_env != "", as.integer(port_env), 8000)
+
+# Start the server
 server <- init_server(port = port)
+
+
