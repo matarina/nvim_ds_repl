@@ -36,13 +36,16 @@ return {
 Additionally, you need to install the following Python and R tools:
 
 ```bash
-pip install --user ipython
-pip install --user radian
+pip install --user ipython radian
 ```
 
 ```R
 install.packages("httpuv")
+install.packages("jsonlite")
 ```
+
+alternatively, you can install all in one by conda:
+conda install -c conda-froge luarocks ipython radian r-httpuv r-jsonlite
 
 ### Key Bindings
 
