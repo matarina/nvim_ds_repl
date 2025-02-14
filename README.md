@@ -45,8 +45,11 @@ install.packages("jsonlite")
 ```
 
 alternatively, you can install all in one by conda:
+
+```bash
 conda install -c conda-froge luarocks ipython radian r-httpuv r-jsonlite
 
+```
 ### Key Bindings
 
 Below are the recommended key bindings to use with nvim_ds_repl:
