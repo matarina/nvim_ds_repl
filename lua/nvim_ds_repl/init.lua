@@ -18,8 +18,14 @@ local M = {
 
 
 local function get_plugin_path()
-   return vim.fn.fnamemodify(debug.getinfo(1, "S").source:sub(2), ":p:h:h:h")
+    local runtime_paths = vim.api.nvim_list_runtime_paths()
+    for _, path in ipairs(runtime_paths) do
+        if path:match("nvim_ds_repl") then
+            return path
+        end
+    end
 end
+
 
 local function open_floating_window(content_lines)
     local width = math.floor(vim.o.columns * 0.8)
@@ -46,6 +52,7 @@ function M.open_terminal()
         python = "ipython -i " .. get_plugin_path() .. "/python/server_init.py " .. M.port
     })[filetype]
 
+    print(term_cmd)
     if term_cmd then
         local chanid = vim.fn.termopen(term_cmd)
         M.term = {opened = 1, winid = winid, bufid = bufid, chanid = chanid}
@@ -88,29 +95,79 @@ local function move_cursor_to_next_line(end_row)
     end
 end
 
-function M.send_statement_definition()
-    local function find_and_return_node()
-        local current_winid = api.nvim_get_current_win()
-        local row = api.nvim_win_get_cursor(0)[1]
 
-        -- Iterate through lines to find the first non-comment, non-empty line
-        while row <= api.nvim_buf_line_count(0) do
-            local line = api.nvim_buf_get_lines(0, row - 1, row, false)[1]
-            local col = line:find("%S")  -- Find the first non-whitespace character
 
-            if col and line:sub(col, col) ~= "#" then
-                api.nvim_win_set_cursor(0, {row, col - 1})
+
+local function handle_cursor_move()
+    local row = api.nvim_win_get_cursor(0)[1]
+    local comment_char = vim.bo.filetype == "cpp" and "//" or "#"
+    while row <= api.nvim_buf_line_count(0) do
+        local line = api.nvim_buf_get_lines(0, row - 1, row, false)[1]
+        local col = line:find("%S")
+
+        -- Skip empty lines or comment lines
+        if not col or line:sub(col, col + (#comment_char - 1)) == comment_char then
+            row = row + 1
+            local success, err =
+                pcall(
+                function()
+                    api.nvim_win_set_cursor(0, {row, 0})
+                end
+            )
+        else
+            local cursor_pos = api.nvim_win_get_cursor(0)
+            local current_col = cursor_pos[2] + 1
+
+            -- If cursor is already on a non-whitespace character, do nothing
+            local char_under_cursor = line:sub(current_col, current_col)
+            if not char_under_cursor:match("%s") then
                 break
             end
-            row = row + 1
+
+            -- Find nearest non-whitespace characters backward and forward
+            local backward_pos, forward_pos
+            for i = current_col - 1, 1, -1 do
+                if not line:sub(i, i):match("%s") then
+                    backward_pos = i
+                    break
+                end
+            end
+
+            for i = current_col + 1, #line do
+                if not line:sub(i, i):match("%s") then
+                    forward_pos = i
+                    break
+                end
+            end
+
+            -- Calculate distances and move cursor
+            local backward_dist = backward_pos and (current_col - backward_pos) or math.huge
+            local forward_dist = forward_pos and (forward_pos - current_col) or math.huge
+
+            if backward_dist < forward_dist then
+                api.nvim_win_set_cursor(0, {row, backward_pos - 1})
+            elseif forward_dist <= backward_dist then
+                api.nvim_win_set_cursor(0, {row, forward_pos - 1})
+            end
+
+            break
         end
+    end
+end
 
-        -- Parse the buffer with Tree-sitter
-        local parser = parsers.get_parser(0)
-        local root = parser:parse()[1]:root()
-        local node = vim.treesitter.get_node()
 
-        -- Helper function to check if a node is an immediate child of the root
+
+
+function M.send_statement_definition()
+    handle_cursor_move()
+    local parser = parsers.get_parser(0)
+    local root = parser:parse()[1]:root()
+    local node = vim.treesitter.get_node()
+
+    print(node)
+    local current_winid = vim.api.nvim_get_current_win()
+
+    local function find_and_return_node()
         local function immediate_child(node)
             for child in root:iter_children() do
                 if child:id() == node:id() then
@@ -120,15 +177,18 @@ function M.send_statement_definition()
             return false
         end
 
-        -- Traverse up the tree until we find an immediate child of the root
         while node and not immediate_child(node) do
             node = node:parent()
         end
 
-        -- Return the node
         return node, current_winid
     end
-    node, current_winid = find_and_return_node()
+
+    local node, winid = find_and_return_node()
+    if not node then
+        print("No valid node found!")
+        return
+    end
 
     local ok, msg = pcall(vim.treesitter.get_node_text, node, 0)
 
@@ -139,11 +199,14 @@ function M.send_statement_definition()
 
     local end_row = select(3, node:range())
     if msg then
-         send_message(vim.bo.filetype, msg)
+        send_message(vim.bo.filetype, msg)
     end
-    vim.api.nvim_set_current_win(current_winid)
+    vim.api.nvim_set_current_win(winid)
     move_cursor_to_next_line(end_row)
 end
+
+
+
 
 local function get_visual_selection()
     local start_pos, end_pos = vim.fn.getpos("v"), vim.fn.getcurpos()
