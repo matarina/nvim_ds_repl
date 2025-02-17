@@ -199,24 +199,44 @@ inspect_list <- function(obj) {
   paste(info, collapse = "\\n")
 }
 
+
 r_inspecter <- function(obj) {
-  if (is.matrix(obj)) {
-    return(inspect_matrix(obj))
+  # Add a flag to track if it was originally a tbl_df
+  is_tibble <- inherits(obj, "tbl_df")
+  
+  if (is_tibble) {
+    obj <- as.data.frame(obj)
+  }
+
+  # Get the inspection result based on the object type
+  result <- if (is.matrix(obj)) {
+    inspect_matrix(obj)
   } else if (is.data.frame(obj)) {
-    return(inspect_dataframe(obj))
+    inspect_dataframe(obj)
   } else if (is.list(obj)) {
-    return(inspect_list(obj))
+    inspect_list(obj)
   } else if (is.vector(obj) || is.factor(obj)) {
-    return(inspect_vector(obj))
+    inspect_vector(obj)
   } else {
-    # Fallback for other types
-    return(paste(
+    paste(
       format_line("Type", class(obj)[1]),
       format_line("Structure", paste(capture.output(str(obj)), collapse = "\\n")),
       sep = "\\n"
-    ))
+    )
   }
+  
+  # Add tibble indication if it was originally a tbl_df
+  if (is_tibble) {
+    result <- paste0(
+      format_line("Original Type", "tibble/tbl_df"),
+      "\\n",
+      result
+    )
+  }
+  
+  return(result)
 }
+
 
 
 

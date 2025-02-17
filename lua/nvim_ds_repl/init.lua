@@ -77,9 +77,8 @@ function M.open_terminal()
     else
         print("Filetype not supported")
     end
+    vim.opt_local.number = false
 
-
---    image_viewer.start_monitor_background("localhost", M.port2)
 
 end
 
