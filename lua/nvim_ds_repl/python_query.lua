@@ -252,6 +252,20 @@ local function display_info(info_str)
     vim.api.nvim_win_set_option(win, 'wrap', true)
     vim.api.nvim_win_set_option(win, 'cursorline', true)
     vim.api.nvim_win_set_option(win, 'winblend', 0)
+
+        -- Customize window colors
+    vim.api.nvim_set_hl(0, 'FloatBorder', {
+        fg = '#89b4fa', -- border color
+        bg = '#000000'  -- border background color
+    })
+    
+    vim.api.nvim_set_hl(0, 'NormalFloat', {
+        bg = '#000000'  -- window background color
+    })
+    
+    -- Apply the highlights to the window
+    vim.api.nvim_win_set_option(win, 'winhighlight', 'Normal:NormalFloat,FloatBorder:FloatBorder')
+
     
     -- Add keymaps for the floating window
     local opts = { noremap = true, silent = true, buffer = buf }
@@ -274,6 +288,8 @@ local function display_info(info_str)
     vim.keymap.set('n', '<C-b>', '<C-b>zz', opts)
     vim.keymap.set('n', 'j', 'gj', opts)
     vim.keymap.set('n', 'k', 'gk', opts)
+    vim.keymap.set('n', 'h', '10h', opts)
+    vim.keymap.set('n', 'l', '10l', opts)
     
     -- Set autocmd to close on buffer leave
     vim.api.nvim_create_autocmd("BufLeave", {
