@@ -8,23 +8,41 @@ local python_query = require("nvim_ds_repl.python_query")
 local M = {}
 local M = {
     term = {opened = 0, winid = 0, bufid = 0, chanid = 0},
-    port = (function()
-        local server = assert(socket.bind("0.0.0.0", 0))
-        local _, port = server:getsockname()
-        server:close()
-        return port
-    end)()
 }
+
+
+
+
+
+-- Function to get an available port
+local function get_available_port()
+    local server = assert(socket.bind("0.0.0.0", 0))
+    local _, port = server:getsockname()
+    server:close()
+    return port
+end
+
+-- Get two available port numbers, ensuring they are not equal
+M.port1 = get_available_port()
+M.port2 = get_available_port()
+
+while M.port2 == M.port1 do
+    M.port2 = get_available_port()
+end
+
 
 
 local function get_plugin_path()
     local runtime_paths = vim.api.nvim_list_runtime_paths()
     for _, path in ipairs(runtime_paths) do
-        if path:match("nvim_ds_repl") then
+        if path:match("nvim_ds_repl$") then
             return path
         end
     end
 end
+
+
+
 
 
 local function open_floating_window(content_lines)
@@ -45,20 +63,24 @@ function M.open_terminal()
     vim.api.nvim_win_set_buf(0, bufid)
     local winid = vim.api.nvim_get_current_win()
 
-    vim.loop.os_setenv("PORT", M.port)
-
+    vim.loop.os_setenv("PORT_R", M.port1)
+    vim.loop.os_setenv("PORT_HGD", M.port2)
     local term_cmd = ({
         r = "radian -q --no-restore --no-save --profile " .. get_plugin_path() .. "/R/server_init.R ",
-        python = "ipython -i " .. get_plugin_path() .. "/python/server_init.py " .. M.port
+        python = "ipython -i " .. get_plugin_path() .. "/python/server_init.py " .. M.port1
     })[filetype]
 
-    print(term_cmd)
+
     if term_cmd then
         local chanid = vim.fn.termopen(term_cmd)
         M.term = {opened = 1, winid = winid, bufid = bufid, chanid = chanid}
     else
         print("Filetype not supported")
     end
+
+
+--    image_viewer.start_monitor_background("localhost", M.port2)
+
 end
 
 
@@ -164,7 +186,6 @@ function M.send_statement_definition()
     local root = parser:parse()[1]:root()
     local node = vim.treesitter.get_node()
 
-    print(node)
     local current_winid = vim.api.nvim_get_current_win()
 
     local function find_and_return_node()
@@ -236,30 +257,17 @@ function M.send_visual_to_repl()
     vim.api.nvim_feedkeys(api.nvim_replace_termcodes("<Esc>", true, false, true), "n", false)
 end
 
-function M.query_global()
-    (vim.bo.filetype == "r" and r_query or python_query).query_global(M.port)
-end
 
 function M.inspect()
     node = vim.treesitter.get_node()
     obj  = ts.get_node_text(node, 0)
     if vim.bo.filetype == "r" then
-        r_query.inspect(obj, M.port)
+        r_query.inspect(obj, M.port1)
     else
-        python_query.inspect(obj, M.port)
+        python_query.inspect(obj, M.port1)
     end
 end
 
-
-function M.table_view()
-    node = vim.treesitter.get_node()
-    obj  = ts.get_node_text(node, 0)
-    if vim.bo.filetype == "r" then
-        r_query.table_view(obj, M.port)
-    else
-        python_query.inspect(obj, M.port)
-    end
-end
 
 return M
 
