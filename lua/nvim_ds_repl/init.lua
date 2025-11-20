@@ -1,7 +1,6 @@
 local api, ts = vim.api, vim.treesitter
+local uv = vim.loop
 local parsers = require 'nvim-treesitter.parsers'
-local socket = require("socket")
-local http = require("socket.http")
 local r_query = require("nvim_ds_repl.r_query")
 local python_query = require("nvim_ds_repl.python_query")
 
@@ -16,10 +15,12 @@ local M = {
 
 -- Function to get an available port
 local function get_available_port()
-    local server = assert(socket.bind("0.0.0.0", 0))
-    local _, port = server:getsockname()
+    local server = assert(uv.new_tcp())
+    assert(server:bind("127.0.0.1", 0))
+    local ok, addr = pcall(server.getsockname, server)
     server:close()
-    return port
+    assert(ok and addr and addr.port, "Failed to acquire available port")
+    return addr.port
 end
 
 -- Get two available port numbers, ensuring they are not equal
@@ -57,6 +58,27 @@ local function open_floating_window(content_lines)
     })
 end
 
+local function get_python_cmd()
+    local function format_py(bin)
+        return string.format("%s -m IPython", vim.fn.shellescape(bin))
+    end
+
+    if vim.g.nvim_ds_repl_python_cmd and #vim.g.nvim_ds_repl_python_cmd > 0 then
+        return vim.g.nvim_ds_repl_python_cmd
+    end
+
+    if vim.g.python3_host_prog and vim.fn.executable(vim.g.python3_host_prog) == 1 then
+        return format_py(vim.g.python3_host_prog)
+    end
+
+    local py = vim.fn.exepath("python3")
+    if py ~= nil and #py > 0 then
+        return format_py(py)
+    end
+
+    return "ipython"
+end
+
 function M.open_terminal()
     local filetype, bufid = vim.bo.filetype, vim.api.nvim_create_buf(false, true)
     vim.cmd("botright 60vsplit")
@@ -67,7 +89,7 @@ function M.open_terminal()
     vim.loop.os_setenv("PORT_HGD", M.port2)
     local term_cmd = ({
         r = "radian -q --no-restore --no-save --profile " .. get_plugin_path() .. "/R/server_init.R ",
-        python = "ipython -i " .. get_plugin_path() .. "/python/server_init.py " .. M.port1
+        python = get_python_cmd() .. " -i " .. get_plugin_path() .. "/python/server_init.py " .. M.port1
     })[filetype]
 
 
@@ -269,5 +291,3 @@ end
 
 
 return M
-
-

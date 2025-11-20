@@ -1,13 +1,20 @@
--- r_query.lua
-local cjson = require("cjson")
 local M = {}
+local function json_encode(payload)
+    local encoder = vim.json and vim.json.encode or vim.fn.json_encode
+    return pcall(encoder, payload)
+end
+
+local function json_decode(payload)
+    local decoder = vim.json and vim.json.decode or vim.fn.json_decode
+    return pcall(decoder, payload)
+end
 
 -- Helper function to make HTTP requests using vim.loop
 local function make_request(request, port, callback)
     local client = vim.loop.new_tcp()
     
     -- Prepare request data
-    local ok, request_body = pcall(cjson.encode, request)
+    local ok, request_body = json_encode(request)
     if not ok then
         vim.schedule(function()
             vim.notify("Failed to encode request to JSON", vim.log.levels.ERROR)
@@ -47,7 +54,7 @@ local function make_request(request, port, callback)
                 -- Parse HTTP response
                 local response_body = chunk:match("\r\n\r\n(.+)$")
                 if response_body then
-                    local ok, response_json = pcall(cjson.decode, response_body)
+                    local ok, response_json = json_decode(response_body)
                     if ok then
                         vim.schedule(function()
                             callback(response_json)
@@ -213,5 +220,4 @@ end
 
 
 return M
-
 

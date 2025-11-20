@@ -1,31 +1,41 @@
-local ltn12 = require("ltn12")
-local http = require("socket.http")
-local cjson = require("cjson")
 local M = {}
+local function decode_json(payload)
+    if type(payload) == "table" then
+        return payload
+    end
+    if type(payload) ~= "string" then
+        return nil, "Invalid JSON payload type: " .. type(payload)
+    end
+    local decoder = vim.json and vim.json.decode or vim.fn.json_decode
+    local ok, result = pcall(decoder, payload)
+    if ok then
+        return result
+    end
+    return nil, result
+end
 
 -- Helper function to send HTTP requests
 local function send_request(path, port)
-    local response_body = {}
-    local url = "http://localhost:" .. port .. path
-
-    local res, code, response_headers = http.request{
-        url = url,
-        sink = ltn12.sink.table(response_body)
-    }
-
-    if res == 1 and code == 200 then
-        local body = table.concat(response_body)
-        local ok, data = pcall(cjson.decode, body)
-        if ok then
-            return data
-        else
-            print("Error parsing JSON:", data)
-            return nil
-        end
-    else
-        print("HTTP request failed with code:", code)
+    if vim.fn.executable("curl") ~= 1 then
+        print("curl is required to query the REPL server")
         return nil
     end
+    local url = "http://localhost:" .. port .. path
+
+    local response_lines = vim.fn.systemlist({"curl", "-s", url})
+
+    if vim.v.shell_error ~= 0 then
+        print("HTTP request failed for URL:", url)
+        return nil
+    end
+
+    local body = table.concat(response_lines, "\n")
+    local data, err = decode_json(body)
+    if data then
+        return data
+    end
+    print("Error parsing JSON:", err)
+    return nil
 end
 
 -- Helper function to process the info string (if needed)
@@ -52,9 +62,9 @@ end
 
 local function display_dataframe(df_data)
     -- Decode the DataFrame JSON
-    local success, data = pcall(cjson.decode, df_data)
-    if not success then
-        print("Error decoding DataFrame JSON:", data)
+    local data, err = decode_json(df_data)
+    if not data then
+        print("Error decoding DataFrame JSON:", err)
         return
     end
 
@@ -332,9 +342,9 @@ end
 
 -- Main handler to process received data based on type
 local function HandleReceivedData(info_field)
-    local success, response = pcall(cjson.decode, info_field)
-    if not success then
-        print("Error decoding 'info' field:", response)
+    local response, err = decode_json(info_field)
+    if not response then
+        print("Error decoding 'info' field:", err)
         return
     end
 
