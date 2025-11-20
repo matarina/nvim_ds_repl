@@ -104,12 +104,13 @@ local function wait_for_port(port, timeout)
     local addr = string.format("127.0.0.1:%s", port)
 
     local function port_ready()
-        local chan = vim.fn.sockconnect("tcp", addr, {partial = false})
-        if chan > 0 then
-            vim.fn.chanclose(chan)
-            return true
+        local ok, chan = pcall(vim.fn.sockconnect, "tcp", addr, {partial = false})
+        if not ok or not chan or chan <= 0 then
+            return false
         end
-        return false
+        -- If the connect succeeds, close immediately.
+        vim.fn.chanclose(chan)
+        return true
     end
 
     if port_ready() then
