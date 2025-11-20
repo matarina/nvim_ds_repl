@@ -4,10 +4,13 @@ local parsers = require 'nvim-treesitter.parsers'
 local r_query = require("nvim_ds_repl.r_query")
 local python_query = require("nvim_ds_repl.python_query")
 
-local M = {}
 local M = {
     term = {opened = 0, winid = 0, bufid = 0, chanid = 0},
 }
+
+local function reset_term_state()
+    M.term = {opened = 0, winid = 0, bufid = 0, chanid = 0}
+end
 
 
 
@@ -58,57 +61,137 @@ local function open_floating_window(content_lines)
     })
 end
 
-local function get_python_cmd()
-    local function format_py(bin)
-        return string.format("%s -m IPython", vim.fn.shellescape(bin))
-    end
+local function format_ipy(bin)
+    return string.format("%s -m IPython", vim.fn.shellescape(bin))
+end
 
+local function get_python_cmd()
     if vim.g.nvim_ds_repl_python_cmd and #vim.g.nvim_ds_repl_python_cmd > 0 then
         return vim.g.nvim_ds_repl_python_cmd
     end
 
     if vim.g.python3_host_prog and vim.fn.executable(vim.g.python3_host_prog) == 1 then
-        return format_py(vim.g.python3_host_prog)
+        return format_ipy(vim.g.python3_host_prog)
     end
 
     local py = vim.fn.exepath("python3")
     if py ~= nil and #py > 0 then
-        return format_py(py)
+        return format_ipy(py)
     end
 
     return "ipython"
 end
 
+local function is_job_running(chanid)
+    if not chanid or chanid == 0 then
+        return false
+    end
+    local status = vim.fn.jobwait({chanid}, 0)[1]
+    return status == -1
+end
+
+local function is_term_valid()
+    return M.term.opened == 1
+        and M.term.bufid ~= 0
+        and api.nvim_buf_is_valid(M.term.bufid)
+        and api.nvim_win_is_valid(M.term.winid)
+        and is_job_running(M.term.chanid)
+end
+
+local function wait_for_port(port, timeout)
+    timeout = timeout or 3000
+    local elapsed, interval = 0, 100
+    local addr = string.format("127.0.0.1:%s", port)
+
+    local function port_ready()
+        local chan = vim.fn.sockconnect("tcp", addr, {partial = false})
+        if chan > 0 then
+            vim.fn.chanclose(chan)
+            return true
+        end
+        return false
+    end
+
+    if port_ready() then
+        return true
+    end
+
+    while elapsed < timeout do
+        vim.wait(interval)
+        elapsed = elapsed + interval
+        if port_ready() then
+            return true
+        end
+    end
+
+    return false
+end
+
 function M.open_terminal()
+    if is_term_valid() then
+        return true
+    end
+    reset_term_state()
+
     local filetype, bufid = vim.bo.filetype, vim.api.nvim_create_buf(false, true)
     vim.cmd("botright 60vsplit")
     vim.api.nvim_win_set_buf(0, bufid)
     local winid = vim.api.nvim_get_current_win()
 
+    local plugin_path = get_plugin_path()
+    if not plugin_path then
+        vim.notify("nvim_ds_repl: unable to locate plugin path", vim.log.levels.ERROR)
+        return false
+    end
+
     vim.loop.os_setenv("PORT_R", M.port1)
     vim.loop.os_setenv("PORT_HGD", M.port2)
     local term_cmd = ({
-        r = "radian -q --no-restore --no-save --profile " .. get_plugin_path() .. "/R/server_init.R ",
-        python = get_python_cmd() .. " -i " .. get_plugin_path() .. "/python/server_init.py " .. M.port1
+        r = (function()
+            local radian = vim.fn.exepath("radian")
+            if radian == nil or #radian == 0 then
+                vim.notify("nvim_ds_repl: radian is not installed or not in PATH", vim.log.levels.ERROR)
+                return nil
+            end
+            return string.format(
+                "%s -q --no-restore --no-save --profile %s",
+                vim.fn.shellescape(radian),
+                vim.fn.shellescape(plugin_path .. "/R/server_init.R")
+            )
+        end)(),
+        python = string.format("%s -i %s %s", get_python_cmd(), vim.fn.shellescape(plugin_path .. "/python/server_init.py"), M.port1)
     })[filetype]
 
 
     if term_cmd then
         local chanid = vim.fn.termopen(term_cmd)
+        if chanid <= 0 then
+            vim.notify("nvim_ds_repl: failed to start REPL terminal", vim.log.levels.ERROR)
+            return false
+        end
         M.term = {opened = 1, winid = winid, bufid = bufid, chanid = chanid}
+        if not wait_for_port(M.port1, 4000) then
+            vim.notify("nvim_ds_repl: REPL server did not become ready in time", vim.log.levels.WARN)
+        end
     else
         print("Filetype not supported")
+        return false
     end
     vim.opt_local.number = false
 
 
+    return true
 end
 
 
 local function send_message(filetype, message)
-    if M.term.opened == 0 then
-        M.open_terminal()
-        vim.wait(500)
+    if not is_term_valid() then
+        reset_term_state()
+        local ok = M.open_terminal()
+        if not ok then
+            return
+        end
+        vim.wait(100)
     end
 
     local prefix = api.nvim_replace_termcodes("<esc>[200~", true, false, true)
@@ -134,7 +217,7 @@ end
 local function move_cursor_to_next_line(end_row)
     local target_line = end_row + 2
     if target_line <= vim.api.nvim_buf_line_count(0) then
-        vim.api.nvim_win_set_cursor(0, {target_line, 0})
+        pcall(vim.api.nvim_win_set_cursor, 0, {target_line, 0})
     end
 end
 
@@ -203,9 +286,24 @@ end
 
 function M.send_statement_definition()
     handle_cursor_move()
-    local parser = parsers.get_parser(0)
-    local root = parser:parse()[1]:root()
+    local ok, parser = pcall(parsers.get_parser, 0)
+    if not ok or not parser then
+        vim.notify("nvim_ds_repl: no Treesitter parser for this buffer", vim.log.levels.WARN)
+        return
+    end
+
+    local tree = parser:parse()[1]
+    if not tree then
+        vim.notify("nvim_ds_repl: failed to parse buffer", vim.log.levels.WARN)
+        return
+    end
+
+    local root = tree:root()
     local node = vim.treesitter.get_node()
+    if not node then
+        vim.notify("nvim_ds_repl: no node under cursor", vim.log.levels.WARN)
+        return
+    end
 
     local current_winid = vim.api.nvim_get_current_win()
 
